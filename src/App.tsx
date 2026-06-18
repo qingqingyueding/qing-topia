@@ -7,9 +7,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Maximize2, X, Loader2, Camera, Github, ExternalLink, Search, ArrowUp, Lock, User, ChevronRight } from 'lucide-react';
 
-// Obfuscated credentials to avoid plaintext storage
-const _U = [113, 105, 110, 103, 113, 105, 110, 103]; // qingqing
-const _P = [113, 105, 110, 103, 113, 105, 110, 103, 109, 105, 109, 97, 49, 50, 51]; // qingqingmima123
+// API base URL for Cloudflare Functions
+const API_BASE = '';
 
 interface CloudinaryResource {
   public_id: string;
@@ -129,35 +128,40 @@ export default function App() {
     return () => window.removeEventListener('resize', updateColumns);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
     setIsAuthenticating(true);
 
-    // Small delay for better UX
-    setTimeout(() => {
-      const u = username.trim();
-      const p = password;
+    try {
+      const res = await fetch(`${API_BASE}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
 
-      const isUValid = u.length === _U.length && u.split('').every((char, i) => char.charCodeAt(0) === _U[i]);
-      const isPValid = p.length === _P.length && p.split('').every((char, i) => char.charCodeAt(0) === _P[i]);
+      const data = await res.json();
 
-      if (isUValid && isPValid) {
-        setIsLoggedIn(true);
+      if (res.ok && data.success) {
         localStorage.setItem('utopia_auth', 'true');
-        setIsAuthenticating(false);
+        localStorage.setItem('utopia_token', data.token);
+        setIsLoggedIn(true);
       } else {
-        setLoginError('用户名或密码错误');
-        setIsAuthenticating(false);
+        setLoginError(data.error || '用户名或密码错误');
       }
-    }, 600);
+    } catch {
+      setLoginError('网络错误，请稍后重试');
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     localStorage.removeItem('utopia_auth');
+    localStorage.removeItem('utopia_token');
     setShowLogin(false);
-    setResources([]); // Clear resources on logout
+    setResources([]);
   };
 
   const CLOUDINARY_CLOUD_NAME = 'drfa9k3ql';
