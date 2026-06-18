@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Maximize2, X, Loader2, Camera, Github, ExternalLink, Search, ArrowUp, Lock, User, ChevronRight } from 'lucide-react';
+import { Maximize2, X, Loader2, Camera, Github, ExternalLink, Search, ArrowUp, Lock, User, ChevronRight, Upload } from 'lucide-react';
 
 // API base URL for Cloudflare Functions
 const API_BASE = '';
@@ -126,6 +126,11 @@ export default function App() {
   const [selectedImage, setSelectedImage] = useState<CloudinaryResource | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [uploadTag, setUploadTag] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Responsive column count
   useEffect(() => {
@@ -176,39 +181,71 @@ export default function App() {
     setResources([]);
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadFile(file);
+    setUploadPreview(URL.createObjectURL(file));
+    setUploadTag(activeCategory.tag);
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      if (uploadTag) formData.append('tags', uploadTag);
+
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (data.success) {
+        setUploadFile(null);
+        setUploadPreview(null);
+        fileInputRef.current!.value = '';
+        fetchData();
+      } else {
+        alert(data.error || '上传失败');
+      }
+    } catch {
+      alert('网络错误');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const CLOUDINARY_CLOUD_NAME = 'drfa9k3ql';
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      // Clear current resources to prevent "old content flicker" when switching categories
-      setResources([]); 
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setResources([]);
+    
+    try {
+      const url = `/api/images?tag=${activeCategory.tag}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to fetch image list: ${response.status} ${response.statusText}`);
+      const data: CloudinaryListResponse = await response.json();
       
-      try {
-        const url = `/api/images?tag=${activeCategory.tag}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch image list: ${response.status} ${response.statusText}`);
-        const data: CloudinaryListResponse = await response.json();
-        
-        if (data && Array.isArray(data.resources)) {
-          // Randomize the order of images
-          setResources(shuffle(data.resources));
-          setVisibleCount(40); // Reset visible count on category change
-        } else {
-          throw new Error('Invalid data format received from Cloudinary');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
+      if (data && Array.isArray(data.resources)) {
+        setResources(shuffle(data.resources));
+        setVisibleCount(40);
+      } else {
+        throw new Error('Invalid data format received from Cloudinary');
       }
-    };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeCategory]);
 
+  useEffect(() => {
     if (isLoggedIn) {
       fetchData();
     }
-  }, [activeCategory, isLoggedIn]);
+  }, [fetchData, isLoggedIn]);
 
   const getImageUrl = (resource: CloudinaryResource, width?: number) => {
     const transform = width ? `c_limit,w_${width}/` : '';
@@ -428,6 +465,22 @@ export default function App() {
                 className="pl-10 pr-4 py-2 bg-slate-50 border border-blue-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all w-48 md:w-64"
               />
             </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-10 h-10 bg-green-500 text-white rounded-full hover:bg-green-600 transition-all hover:shadow-lg hover:shadow-green-200 active:scale-95 flex items-center justify-center"
+              title="上传图片"
+            >
+              <Upload className="w-5 h-5" />
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+
             <button 
               onClick={handleLogout}
               className="px-5 py-2.5 bg-blue-500 text-white rounded-full font-semibold hover:bg-blue-600 transition-all hover:shadow-lg hover:shadow-blue-200 active:scale-95 text-sm md:text-base"
@@ -543,6 +596,65 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Upload Modal */}
+      <AnimatePresence>
+        {uploadPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+            onClick={() => !uploading && (setUploadFile(null) || setUploadPreview(null))}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-900">上传图片</h3>
+                {!uploading && (
+                  <button onClick={() => { setUploadFile(null); setUploadPreview(null); }}>
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                )}
+              </div>
+
+              <img
+                src={uploadPreview}
+                alt="预览"
+                className="w-full aspect-video object-cover rounded-2xl mb-4 bg-slate-100"
+              />
+
+              <label className="text-sm font-bold text-slate-700 ml-1 block mb-1">分类标签</label>
+              <select
+                value={uploadTag}
+                onChange={e => setUploadTag(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-blue-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium mb-5"
+              >
+                {CATEGORIES.map(cat => (
+                  <option key={cat.id} value={cat.tag}>{cat.name}</option>
+                ))}
+              </select>
+
+              <button
+                onClick={handleUpload}
+                disabled={uploading}
+                className="w-full py-4 bg-green-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-green-200 hover:bg-green-600 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {uploading ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  "上传到 " + (CATEGORIES.find(c => c.tag === uploadTag)?.name || '')
+                )}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
       <footer className="bg-white border-t border-blue-100 py-12">
