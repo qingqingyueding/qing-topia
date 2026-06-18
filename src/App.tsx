@@ -41,6 +41,15 @@ interface GalleryItemProps {
   onClick: () => void;
 }
 
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // Gallery Item Component to manage local loading state and prevent flickering
   const GalleryItem = ({ 
   resource, 
@@ -184,8 +193,7 @@ export default function App() {
         
         if (data && Array.isArray(data.resources)) {
           // Randomize the order of images
-          const shuffled = [...data.resources].sort(() => Math.random() - 0.5);
-          setResources(shuffled);
+          setResources(shuffle(data.resources));
           setVisibleCount(40); // Reset visible count on category change
         } else {
           throw new Error('Invalid data format received from Cloudinary');

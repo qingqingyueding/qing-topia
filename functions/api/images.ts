@@ -14,10 +14,17 @@ async function fetchAll(context, baseUrl) {
     const res = await fetch(url, {
       headers: { Authorization: `Basic ${auth}` }
     });
+
+    if (!res.ok) break;
+
     const data = await res.json();
 
-    if (data.resources) {
-      allResources.push(...data.resources);
+    if (Array.isArray(data.resources)) {
+      for (const r of data.resources) {
+        if (r && r.public_id && r.format && r.version && r.width && r.height) {
+          allResources.push(r);
+        }
+      }
     }
 
     if (!data.next_cursor) break;
