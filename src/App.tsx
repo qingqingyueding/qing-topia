@@ -38,14 +38,12 @@ const CATEGORIES = [
 interface GalleryItemProps {
   key?: string | number;
   resource: CloudinaryResource;
-  index: number;
   onClick: () => void;
 }
 
 // Gallery Item Component to manage local loading state and prevent flickering
 const GalleryItem = ({ 
   resource, 
-  index, 
   onClick 
 }: GalleryItemProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -66,7 +64,7 @@ const GalleryItem = ({
 
   return (
     <div
-      className="group relative bg-slate-200/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 border border-white cursor-pointer"
+      className="group relative bg-slate-200/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 border border-white cursor-pointer mb-6 break-inside-avoid"
       style={{ 
         aspectRatio: `${resource.width} / ${resource.height}`,
       }}
@@ -235,25 +233,6 @@ export default function App() {
   };
 
   const visibleResources = useMemo(() => filteredResources.slice(0, visibleCount), [filteredResources, visibleCount]);
-
-  const columns = useMemo(() => {
-    const cols: CloudinaryResource[][] = Array.from({ length: columnCount }, () => []);
-    const heights = Array(columnCount).fill(0);
-
-    visibleResources.forEach((resource) => {
-      let shortest = 0;
-      for (let i = 1; i < columnCount; i++) {
-        if (heights[i] < heights[shortest]) {
-          shortest = i;
-        }
-      }
-      cols[shortest].push(resource);
-      // Use aspect ratio to estimate height
-      heights[shortest] += resource.height / resource.width;
-    });
-
-    return cols;
-  }, [visibleResources, columnCount]);
 
   if (!isLoggedIn) {
     if (!showLogin) {
@@ -501,22 +480,17 @@ export default function App() {
           </div>
         ) : (
           <div 
-            className="grid gap-6" 
             style={{ 
-              gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` 
+              columnCount: columnCount,
+              columnGap: '1.5rem',
             }}
           >
-            {columns.map((column, colIndex) => (
-              <div key={colIndex} className="flex flex-col gap-6">
-                {column.map((resource, index) => (
-                  <GalleryItem 
-                    key={resource.public_id}
-                    resource={resource}
-                    index={index}
-                    onClick={() => setSelectedImage(resource)}
-                  />
-                ))}
-              </div>
+            {visibleResources.map((resource) => (
+              <GalleryItem 
+                key={resource.public_id}
+                resource={resource}
+                onClick={() => setSelectedImage(resource)}
+              />
             ))}
           </div>
         )}
