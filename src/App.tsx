@@ -47,6 +47,7 @@ interface GalleryItemProps {
   onClick 
 }: GalleryItemProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const CLOUDINARY_CLOUD_NAME = 'drfa9k3ql';
 
@@ -57,21 +58,26 @@ interface GalleryItemProps {
   }, []);
 
   const getImageUrl = (res: CloudinaryResource, width?: number) => {
+    if (!res.version || !res.format || !res.public_id) return '';
     const transform = width ? `c_limit,w_${width}/` : '';
     return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${transform}v${res.version}/${res.public_id}.${res.format}`;
   };
+
+  const imgSrc = getImageUrl(resource, 600);
+
+  if (!imgSrc || hasError) return null;
 
   return (
     <div
       className="group relative bg-slate-200/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-shadow duration-500 border border-white cursor-pointer"
       style={{ 
-        aspectRatio: `${resource.width} / ${resource.height}`,
+        aspectRatio: `${Math.max(resource.width, 1)} / ${Math.max(resource.height, 1)}`,
       }}
       onClick={onClick}
     >
       <img
         ref={imgRef}
-        src={getImageUrl(resource, 600)}
+        src={imgSrc}
         alt={resource.public_id}
         loading="lazy"
         className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-700 ease-out ${
@@ -79,6 +85,7 @@ interface GalleryItemProps {
         }`}
         referrerPolicy="no-referrer"
         onLoad={() => setIsLoaded(true)}
+        onError={() => setHasError(true)}
       />
       
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-5 pointer-events-none">
@@ -247,7 +254,10 @@ export default function App() {
         if (heights[i] < heights[shortest]) shortest = i;
       }
       cols[shortest].push(resource);
-      heights[shortest] += resource.height / resource.width;
+      const ratio = resource.width > 0 && resource.height > 0
+        ? resource.height / resource.width
+        : 1;
+      heights[shortest] += ratio;
     });
 
     return cols;
