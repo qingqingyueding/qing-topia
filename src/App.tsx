@@ -42,7 +42,7 @@ interface GalleryItemProps {
 }
 
 // Gallery Item Component to manage local loading state and prevent flickering
-const GalleryItem = ({ 
+  const GalleryItem = ({ 
   resource, 
   onClick 
 }: GalleryItemProps) => {
@@ -50,7 +50,6 @@ const GalleryItem = ({
   const imgRef = useRef<HTMLImageElement>(null);
   const CLOUDINARY_CLOUD_NAME = 'drfa9k3ql';
 
-  // Check if image is already cached
   useEffect(() => {
     if (imgRef.current?.complete) {
       setIsLoaded(true);
@@ -64,7 +63,7 @@ const GalleryItem = ({
 
   return (
     <div
-      className="group relative bg-slate-200/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 border border-white cursor-pointer mb-6 break-inside-avoid"
+      className="group relative bg-slate-200/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-shadow duration-500 border border-white cursor-pointer"
       style={{ 
         aspectRatio: `${resource.width} / ${resource.height}`,
       }}
@@ -76,13 +75,12 @@ const GalleryItem = ({
         alt={resource.public_id}
         loading="lazy"
         className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-700 ease-out ${
-          isLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-110 blur-sm'
+          isLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         referrerPolicy="no-referrer"
         onLoad={() => setIsLoaded(true)}
       />
       
-      {/* Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-5 pointer-events-none">
         <div className="flex items-center justify-between text-white">
           <span className="text-sm font-medium truncate pr-4">
@@ -233,6 +231,27 @@ export default function App() {
   };
 
   const visibleResources = useMemo(() => filteredResources.slice(0, visibleCount), [filteredResources, visibleCount]);
+
+  const effectiveColCount = useMemo(
+    () => Math.min(columnCount, Math.max(visibleResources.length, 1)),
+    [columnCount, visibleResources.length]
+  );
+
+  const columns = useMemo(() => {
+    const cols: CloudinaryResource[][] = Array.from({ length: effectiveColCount }, () => []);
+    const heights = Array(effectiveColCount).fill(0);
+
+    visibleResources.forEach((resource) => {
+      let shortest = 0;
+      for (let i = 1; i < effectiveColCount; i++) {
+        if (heights[i] < heights[shortest]) shortest = i;
+      }
+      cols[shortest].push(resource);
+      heights[shortest] += resource.height / resource.width;
+    });
+
+    return cols;
+  }, [visibleResources, effectiveColCount]);
 
   if (!isLoggedIn) {
     if (!showLogin) {
@@ -480,17 +499,21 @@ export default function App() {
           </div>
         ) : (
           <div 
+            className="grid gap-6" 
             style={{ 
-              columnCount: columnCount,
-              columnGap: '1.5rem',
+              gridTemplateColumns: `repeat(${effectiveColCount}, minmax(0, 1fr))`,
             }}
           >
-            {visibleResources.map((resource) => (
-              <GalleryItem 
-                key={resource.public_id}
-                resource={resource}
-                onClick={() => setSelectedImage(resource)}
-              />
+            {columns.map((column, colIndex) => (
+              <div key={colIndex} className="flex flex-col gap-6">
+                {column.map((resource) => (
+                  <GalleryItem 
+                    key={resource.public_id}
+                    resource={resource}
+                    onClick={() => setSelectedImage(resource)}
+                  />
+                ))}
+              </div>
             ))}
           </div>
         )}
