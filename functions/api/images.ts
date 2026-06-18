@@ -16,9 +16,10 @@ export async function onRequestGet(context) {
   const tag = url.searchParams.get("tag");
 
   let apiUrl = `https://api.cloudinary.com/v1_1/${cloudName}/resources/image`;
-  if (tag) {
+  if (tag && tag !== "selfie") {
     apiUrl += `/tags/${tag}`;
   }
+  apiUrl += `?max_results=500`;
 
   const response = await fetch(apiUrl, {
     headers: {
