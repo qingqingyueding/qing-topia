@@ -3,11 +3,12 @@ async function sha1(data) {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function uploadToCloudinary(env, file, tags) {
+async function uploadToCloudinary(env, file, name, tags) {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = env;
   const timestamp = Math.round(Date.now() / 1000);
 
   const params = { timestamp: String(timestamp) };
+  if (name) params.public_id = name;
   if (tags) params.tags = tags;
 
   const sorted = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&");
@@ -18,6 +19,7 @@ async function uploadToCloudinary(env, file, tags) {
   formData.append("api_key", CLOUDINARY_API_KEY);
   formData.append("timestamp", String(timestamp));
   formData.append("signature", signature);
+  if (name) formData.append("public_id", name);
   if (tags) formData.append("tags", tags);
 
   const res = await fetch(
@@ -34,6 +36,7 @@ export async function onRequestPost(context) {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
+    const name = formData.get("name") || "";
     const tags = formData.get("tags") || "";
 
     if (!file || !(file instanceof File)) {
@@ -43,7 +46,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    const result = await uploadToCloudinary(env, file, tags);
+    const result = await uploadToCloudinary(env, file, name, tags);
 
     if (result.error) {
       return new Response(JSON.stringify({ error: result.error.message }), {

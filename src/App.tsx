@@ -129,6 +129,7 @@ export default function App() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [uploadTag, setUploadTag] = useState('');
+  const [uploadFileName, setUploadFileName] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -187,6 +188,8 @@ export default function App() {
     setUploadFile(file);
     setUploadPreview(URL.createObjectURL(file));
     setUploadTag(activeCategory.tag);
+    const name = file.name.replace(/\.[^.]+$/, '');
+    setUploadFileName(name);
   };
 
   const handleUpload = async () => {
@@ -195,6 +198,7 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append('file', uploadFile);
+      formData.append('name', uploadFileName || uploadFile.name.replace(/\.[^.]+$/, ''));
       if (uploadTag) formData.append('tags', uploadTag);
 
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -203,6 +207,7 @@ export default function App() {
       if (data.success) {
         setUploadFile(null);
         setUploadPreview(null);
+        setUploadFileName('');
         fileInputRef.current!.value = '';
         fetchData();
       } else {
@@ -627,6 +632,15 @@ export default function App() {
                 src={uploadPreview}
                 alt="预览"
                 className="w-full aspect-video object-cover rounded-2xl mb-4 bg-slate-100"
+              />
+
+              <label className="text-sm font-bold text-slate-700 ml-1 block mb-1">图片名称</label>
+              <input
+                type="text"
+                value={uploadFileName}
+                onChange={e => setUploadFileName(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-blue-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium mb-4"
+                placeholder="输入图片名称"
               />
 
               <label className="text-sm font-bold text-slate-700 ml-1 block mb-1">分类标签</label>
