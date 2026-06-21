@@ -18,10 +18,10 @@ async function uploadToCloudinary(env, file, name, tags) {
   const timestamp = Math.round(Date.now() / 1000);
 
   const folder = FOLDER_MAP[tags] || "";
-  const publicId = folder ? `${folder}/${name}` : name;
 
   const params = { timestamp: String(timestamp) };
-  if (name) params.public_id = publicId;
+  if (name) params.public_id = name;
+  if (folder) params.folder = folder;
   if (tags) params.tags = tags;
 
   const sorted = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&");
@@ -32,7 +32,8 @@ async function uploadToCloudinary(env, file, name, tags) {
   formData.append("api_key", CLOUDINARY_API_KEY);
   formData.append("timestamp", String(timestamp));
   formData.append("signature", signature);
-  if (name) formData.append("public_id", publicId);
+  if (name) formData.append("public_id", name);
+  if (folder) formData.append("folder", folder);
   if (tags) formData.append("tags", tags);
 
   const res = await fetch(
