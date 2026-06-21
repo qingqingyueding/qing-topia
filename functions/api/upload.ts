@@ -1,3 +1,13 @@
+const FOLDER_MAP = {
+  aurora: "A Rendezvous with the Aurora",
+  cosplay: "cosplay",
+  celestial: "Mirror of the Sky",
+  cat: "Ragdoll cat photo",
+  sakura: "Sakura_Photography",
+  selfie: "selfie",
+  dali: "yunnandali",
+};
+
 async function sha1(data) {
   const hash = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(data));
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -7,8 +17,11 @@ async function uploadToCloudinary(env, file, name, tags) {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = env;
   const timestamp = Math.round(Date.now() / 1000);
 
+  const folder = FOLDER_MAP[tags] || "";
+  const publicId = folder ? `${folder}/${name}` : name;
+
   const params = { timestamp: String(timestamp) };
-  if (name) params.public_id = name;
+  if (name) params.public_id = publicId;
   if (tags) params.tags = tags;
 
   const sorted = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&");
@@ -19,7 +32,7 @@ async function uploadToCloudinary(env, file, name, tags) {
   formData.append("api_key", CLOUDINARY_API_KEY);
   formData.append("timestamp", String(timestamp));
   formData.append("signature", signature);
-  if (name) formData.append("public_id", name);
+  if (name) formData.append("public_id", publicId);
   if (tags) formData.append("tags", tags);
 
   const res = await fetch(
